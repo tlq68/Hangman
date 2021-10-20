@@ -1,0 +1,1 @@
+{"json_class":"GameState","current_word":"artist","used_letters":["A","B","C"]}
