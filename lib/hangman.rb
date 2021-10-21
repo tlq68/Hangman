@@ -54,12 +54,14 @@ class StartMenu
         if input == 'new'
             puts "You started a new game!"
             new_game
+            play_game
         elsif input == 'load'
-            puts "You loaded the game!"
             load_game
+            play_game
         elsif input == 'save'
-            puts "You saved the game!"
             save_game
+        elsif input == 'quit'
+            quit_game
         else
             puts "Please enter a valid option."
         end
@@ -77,16 +79,26 @@ class StartMenu
         puts @@current_word
     end
 
+    def play_game
+        input = ''
+        puts "Enter a single letter."
+        while input != 'quit'
+            input = gets.chomp.downcase
+
+            StartMenu.new.start_menu if input == 'menu'
+        end
+    end
+
     def quit_game
         puts "Thanks for playing!"
         exit
     end
 
     def save_game
-        a = GameState.new('artist', ['A', 'B', 'C'])
-        x = a.to_json
-        @@current_word = ''
         if @@current_word
+            a = GameState.new(@@current_word.chomp, ['A', 'B', 'C'])
+            x = a.to_json
+        
             save = SavedGame.new(x)
             puts save, "This is save"
             file = File.new('save_file.txt', 'w')
@@ -111,14 +123,17 @@ class StartMenu
                     result
                 end
             end 
+        
+            puts save_data
+
+            get_result = JSON.parse(save_data, create_additions: true)
+            @@current_word = get_result.current_word
+
+            p get_result.current_word
+            p get_result.used_letters
+        elsif
+            puts "There is nothing to load"
         end
-        puts save_data
-
-        get_result = JSON.parse(save_data, create_additions: true)
-
-        p get_result.used_letters
-        p get_result.used_letters[1]
-                
     end
 end
 
@@ -126,7 +141,7 @@ end
 class PlayGame 
     attr_reader :current_word, :available_letters
 
-    @@strike_counter
+    @@strike_counter = 0
     @@words_file_path = File.expand_path('lib/random_words.txt')
     @@available_letters_array = []
 
@@ -139,7 +154,7 @@ class PlayGame
                 result = x.readline
             end
         end
-        result
+        result.chomp
     end
 
     def random_word
@@ -163,12 +178,12 @@ class PlayGame
     def play
         @@available_letters_array = PlayGame.new.make_letters()
 
-    PlayGame.new.player_choice()
+        PlayGame.new.player_choice()
     
     
-    @@available_letters_array = PlayGame.new.make_letters()
-    p @@available_letters_array
-    exit
+        @@available_letters_array = PlayGame.new.make_letters()
+        p @@available_letters_array
+        exit
     end
 
     def player_choice
@@ -185,6 +200,46 @@ class PlayGame
                 p @@available_letters_array
                 break if @@available_letters_array.length < 1
         end
+    end
+
+    def player_guess()
+        
+        input = ''
+        word = PlayGame.new.word_to_play
+        word_blanks = PlayGame.new.make_blanks(word)
+        while true
+
+            input = gets.chomp.upcase
+            practice_word = word.upcase.split('')
+            p practice_word
+            practice_word.each_with_index do |letter, index|
+                p input
+                p letter
+                
+                if input == letter
+                    word_blanks[index] = letter
+                else
+                    puts "Please enter a valid letter."
+                end
+                # Make an if/else for the strike counter
+            end
+            p word_blanks
+            
+                        
+            puts word_blanks.join('  ')
+            break if input == 'QUIT'
+            StartMenu.new.quit_game if word_blanks == practice_word
+        
+        end
+    end
+
+    def make_blanks(word)
+        p word
+        blank_array = []
+        word.length.times do 
+            blank_array.push('_')
+        end 
+        blank_array
     end
 
     def is_letter_correct?
@@ -229,27 +284,18 @@ class SavedGame
         @saved_game_data
     end
 end
+
+
+
+
 #StartMenu.new.start_menu()
-#PlayGame.new.play()
-
-
-
-
-
-
-
-
-
-#=> #<A:0x007f92cc8f37f0 @a=1, @b="a", @c=[1, 2, 3]>
-
-#x = JSON.parse(a.to_json, create_additions: true)
-
-
-
-StartMenu.new.load_game
    
 
-            
+
+
+
+p PlayGame.new.player_guess()
+
 
            
 
