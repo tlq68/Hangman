@@ -38,12 +38,7 @@ class StartMenu
     @@current_word = nil
     
     def start_menu
-        if @@current_word
-            puts true
-        elsif !@@current_word
-            puts false
-
-        end
+        
         puts "Hello there! Would you like to start a new game or load a previous save?"
         puts "Enter 'q' to quit at any time."
         input = ''
@@ -95,23 +90,26 @@ class StartMenu
     end
 
     def save_game
-        if @@current_word
-            a = GameState.new(@@current_word.chomp, ['A', 'B', 'C'])
+        save_data = StartMenu.new.get_save_data()
+        word_to_save = save_data.saved_word
+        used_letters_to_save = save_data.saved_used_letters
+
+        if word_to_save
+            a = GameState.new(word_to_save.chomp, used_letters_to_save)
             x = a.to_json
         
-            save = SavedGame.new(x)
+            save = SaveData.new(x)
             puts save, "This is save"
             file = File.new('save_file.txt', 'w')
             file.write(x)
             file.close
-        elsif !@@current_word
+        elsif !word_to_save
             puts "There is nothing to save."
         end
-        puts @@current_word
+        puts word_to_save
     end
 
     def load_game
-
         if File.exist?("save_file.txt")
             puts "The file exists!"
             save_data = File.open("save_file.txt", "r") do |x|
@@ -135,18 +133,42 @@ class StartMenu
             puts "There is nothing to load"
         end
     end
+
+    def get_save_data
+        PlayGame.new.ready_save()
+    end
 end
 
 
 class PlayGame 
-    attr_reader :current_word, :available_letters
+    attr_reader :word_to_play, :used_letters
 
     @@strike_counter = 0
     @@words_file_path = File.expand_path('lib/random_words.txt')
     @@available_letters_array = []
+    @@used_letters_array = []
     @@current_word = nil
     @@word_blanks = nil
     @@strikes_display = ''
+
+    # def initialize(word_to_play, used_letters)
+    #     @word_to_play = word_to_play
+    #     @used_letters = used_letters
+
+    # end
+
+    # def word_to_play
+    #     @word_to_play
+    # end
+
+    # def used_letters
+    #     @used_letters = @@used_letters_array
+    #     @used_letters
+    # end
+
+    def ready_save
+        SavedGame.new(@@current_word, @@used_letters_array)
+    end
 
     def choose_word(path, line)
         result = ""
@@ -185,7 +207,6 @@ class PlayGame
         @@strike_counter = 0
         @@strikes_display = ''
 
-
         puts "Lets get ready to play!"
         
         input = ''
@@ -199,16 +220,16 @@ class PlayGame
             lose_game if @@strike_counter >= 6
             break if @@current_word.upcase.split('') == @@word_blanks
             break if @@strike_counter >= 6
+
+            StartMenu.new.start_menu if input == 'MENU'
         end
-        
-    
+            
         @@available_letters_array = PlayGame.new.make_letters()
 
         play_again()
 
         exit
     end
-
 
     def word_maker_holder_method(input)
         
@@ -241,6 +262,8 @@ class PlayGame
             @@available_letters_array.slice!(@@available_letters_array.find_index(input),1)
             matches_word(input)
             word_maker_holder_method(input)
+            @@used_letters_array.push(input)
+            
         else
             puts "That is not a valid letter."
         end
@@ -314,26 +337,26 @@ end
 class SavedGame
     attr_accessor :saved_game_data
 
-    def initialize(saved_game_data)
-        @saved_game_data = saved_game_data
+    def initialize(saved_word, saved_used_letters)
+        @saved_word = saved_word
+        @saved_used_letters = saved_used_letters
     end
 
-    def saved_game_data
-        @saved_game_data
+    def saved_word
+        @saved_word
+    end
+
+    def saved_used_letters
+        @saved_used_letters
     end
 end
 
-
-
+class SaveData 
+    def initialize(save_data)
+        @save_data = save_data
+    end
+end
 
 #StartMenu.new.start_menu()
    
-
-
-
-
-p PlayGame.new.play()
-
-
-           
-
+PlayGame.new.play
