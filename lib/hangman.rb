@@ -144,6 +144,9 @@ class PlayGame
     @@strike_counter = 0
     @@words_file_path = File.expand_path('lib/random_words.txt')
     @@available_letters_array = []
+    @@current_word = nil
+    @@word_blanks = nil
+    @@strikes_display = ''
 
     def choose_word(path, line)
         result = ""
@@ -177,59 +180,98 @@ class PlayGame
 
     def play
         @@available_letters_array = PlayGame.new.make_letters()
+        @@current_word = PlayGame.new.word_to_play
+        @@word_blanks = PlayGame.new.make_blanks(@@current_word)
+        @@strike_counter = 0
+        @@strikes_display = ''
 
-        PlayGame.new.player_choice()
-    
+
+        puts "Lets get ready to play!"
+        
+        input = ''
+        while input != 'QUIT'
+            p @@word_blanks
+            p @@current_word
+            puts "Strikes: #{@@strikes_display}"
+            input = gets.chomp.upcase
+            player_choice(input)
+            win_game if @@current_word == @@word_blanks
+            lose_game if @@strike_counter >= 6
+            break if @@current_word.upcase.split('') == @@word_blanks
+            break if @@strike_counter >= 6
+        end
+        
     
         @@available_letters_array = PlayGame.new.make_letters()
-        p @@available_letters_array
+
+        play_again()
+
         exit
     end
 
-    def player_choice
-        input = ''
 
-        while input != '1'
-            input = gets.chomp.upcase
-                if @@available_letters_array.include?(input)
-                    puts "It includes #{input}"
-                    @@available_letters_array.slice!(@@available_letters_array.find_index(input),1)
-                else
-                    puts "That is not a valid letter."
-                end
-                p @@available_letters_array
-                break if @@available_letters_array.length < 1
+    def word_maker_holder_method(input)
+        
+        practice_word = @@current_word.upcase.split('')
+        p practice_word
+        
+        practice_word.each_with_index do |letter, index|
+            if input == letter
+                @@word_blanks[index] = letter
+            end
+        end
+    end
+
+    def matches_word(input)
+        all_caps_current_word = @@current_word.upcase
+        if !all_caps_current_word.include?(input)
+            add_strike()
+            add_strikes()
+            puts @@strike_counter
+        end
+    end
+
+    def add_strikes
+        @@strikes_display += 'X'
+    end
+
+    def player_choice(input)
+        if @@available_letters_array.include?(input)
+            puts "It includes #{input}"
+            @@available_letters_array.slice!(@@available_letters_array.find_index(input),1)
+            matches_word(input)
+            word_maker_holder_method(input)
+        else
+            puts "That is not a valid letter."
         end
     end
 
     def player_guess()
+        @@strike_counter = 0
+       
+        player_choice(input)
+
+        puts word_blanks.join('  ')
         
+        PlayGame.new.play_again() if word_blanks == practice_word
+    
+    end
+
+    def play_again
+        puts "Wanna play again? (Y/N)"
         input = ''
-        word = PlayGame.new.word_to_play
-        word_blanks = PlayGame.new.make_blanks(word)
         while true
 
             input = gets.chomp.upcase
-            practice_word = word.upcase.split('')
-            p practice_word
-            practice_word.each_with_index do |letter, index|
-                p input
-                p letter
-                
-                if input == letter
-                    word_blanks[index] = letter
-                else
-                    puts "Please enter a valid letter."
-                end
-                # Make an if/else for the strike counter
+
+            case(input)
+                when 'Y' 
+                    play()
+                when 'N' 
+                    StartMenu.new.quit_game()
+                else 
+                    puts "Please enter a valid option."
             end
-            p word_blanks
-            
-                        
-            puts word_blanks.join('  ')
-            break if input == 'QUIT'
-            StartMenu.new.quit_game if word_blanks == practice_word
-        
         end
     end
 
@@ -240,10 +282,6 @@ class PlayGame
             blank_array.push('_')
         end 
         blank_array
-    end
-
-    def is_letter_correct?
-
     end
 
     def add_strike
@@ -294,7 +332,7 @@ end
 
 
 
-p PlayGame.new.player_guess()
+p PlayGame.new.play()
 
 
            
