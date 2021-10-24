@@ -14,29 +14,33 @@
 require 'json'
 
 class GameState
-    attr_accessor :current_word, :used_letters
+    attr_accessor :saved_word, :saved_used_letters
   
-    def initialize(current_word, used_letters)
-      @current_word = current_word
-      @used_letters = used_letters
+    def initialize(saved_word, saved_used_letters)
+      @saved_word = saved_word
+      @saved_used_letters = saved_used_letters
     end
   
     def to_json(*args)
       {
         JSON.create_id => self.class.name,
-        'current_word' => current_word,
-        'used_letters' => used_letters
+        'saved_word' => saved_word,
+        'saved_used_letters' => saved_used_letters
       }.to_json(*args)
     end
   
     def self.json_create(h)
-      new(h['current_word'], h['used_letters'])
+      new(h['saved_word'], h['saved_used_letters'])
     end
   end
 
 class StartMenu
     @@current_word = nil
-    
+    @@save_data = nil
+    @@word_to_save = nil
+    @@used_letters_to_save = nil
+    @@used_letters = nil
+        
     def start_menu
         
         puts "Hello there! Would you like to start a new game or load a previous save?"
@@ -48,15 +52,16 @@ class StartMenu
         
         if input == 'new'
             puts "You started a new game!"
-            new_game
-            play_game
+            new_game()
+            PlayGame.new.start_game
         elsif input == 'load'
-            load_game
-            play_game
+            load_game()
+            PlayGame.new.play
         elsif input == 'save'
-            save_game
+            save_game()
+            PlayGame.new.play
         elsif input == 'quit'
-            quit_game
+            quit_game()
         else
             puts "Please enter a valid option."
         end
@@ -66,22 +71,18 @@ class StartMenu
 
     def new_game
         the_word = PlayGame.new.word_to_play
-        @@current_word = the_word
+        PlayGame.new.set_current_word(the_word)
+        PlayGame.new.set_used_letters([])
+        PlayGame.new.set_new_game_available_letters()
+        PlayGame.new.set_loaded_blanks()
+        PlayGame.new.set_word_blanks()
+        PlayGame.new.reset_strike()
+        PlayGame.new.play()
         # file = File.new('save_file.txt', 'w')
         # file.write(the_word)
         # file.close
 
-        puts @@current_word
-    end
-
-    def play_game
-        input = ''
-        puts "Enter a single letter."
-        while input != 'quit'
-            input = gets.chomp.downcase
-
-            StartMenu.new.start_menu if input == 'menu'
-        end
+        puts the_word
     end
 
     def quit_game
@@ -90,12 +91,12 @@ class StartMenu
     end
 
     def save_game
-        save_data = StartMenu.new.get_save_data()
-        word_to_save = save_data.saved_word
-        used_letters_to_save = save_data.saved_used_letters
+        @@save_data = StartMenu.new.get_save_data()
+        @@word_to_save = @@save_data.saved_word
+        @@used_letters_to_save = @@save_data.saved_used_letters
 
-        if word_to_save
-            a = GameState.new(word_to_save.chomp, used_letters_to_save)
+        if @@word_to_save
+            a = GameState.new(@@word_to_save.chomp, @@used_letters_to_save)
             x = a.to_json
         
             save = SaveData.new(x)
@@ -103,12 +104,11 @@ class StartMenu
             file = File.new('save_file.txt', 'w')
             file.write(x)
             file.close
-        elsif !word_to_save
+        elsif !@@word_to_save
             puts "There is nothing to save."
         end
-        puts word_to_save
     end
-
+        
     def load_game
         if File.exist?("save_file.txt")
             puts "The file exists!"
@@ -122,13 +122,15 @@ class StartMenu
                 end
             end 
         
-            puts save_data
-
             get_result = JSON.parse(save_data, create_additions: true)
-            @@current_word = get_result.current_word
+            PlayGame.new.set_current_word(get_result.saved_word)
+            PlayGame.new.set_used_letters(get_result.saved_used_letters)
+            PlayGame.new.make_letters
+            PlayGame.new.set_available_letters(get_result.saved_used_letters)
+            PlayGame.new.set_word_blanks()
+            PlayGame.new.reset_strike()
+            PlayGame.new.set_loaded_blanks()
 
-            p get_result.current_word
-            p get_result.used_letters
         elsif
             puts "There is nothing to load"
         end
@@ -150,21 +152,6 @@ class PlayGame
     @@current_word = nil
     @@word_blanks = nil
     @@strikes_display = ''
-
-    # def initialize(word_to_play, used_letters)
-    #     @word_to_play = word_to_play
-    #     @used_letters = used_letters
-
-    # end
-
-    # def word_to_play
-    #     @word_to_play
-    # end
-
-    # def used_letters
-    #     @used_letters = @@used_letters_array
-    #     @used_letters
-    # end
 
     def ready_save
         SavedGame.new(@@current_word, @@used_letters_array)
@@ -190,6 +177,52 @@ class PlayGame
         PlayGame.new.choose_word(@@words_file_path, random_word)
     end
 
+    def set_current_word(word)
+        @@current_word = word
+    end
+
+    def set_used_letters(used_letters)
+        @@used_letters_array = used_letters
+    end
+
+    def set_available_letters(used_letters)
+        new_used_letters_array = @@available_letters_array.each_with_index do |letter, index|
+            used_letters.each do |used_letter| 
+                if @@available_letters_array.include?(used_letter)
+                    @@available_letters_array.slice!(@@available_letters_array.find_index(used_letter), 1)
+                end
+            end
+        end
+        @@available_letters_array = new_used_letters_array
+    end
+
+    def set_new_game_available_letters
+        @@available_letters_array = make_letters()
+    end
+
+    def set_word_blanks()
+        @@word_blanks = make_blanks(@@current_word)
+    end
+
+    def set_loaded_blanks()
+        practice_word = @@current_word.upcase.split('')
+        p practice_word
+        used_letters = @@used_letters_array
+
+        used_letters.each do |input|
+            if !practice_word.include?(input)
+                add_strikes_to_display()
+            end
+
+            practice_word.each_with_index do |letter, index|
+                if input == letter
+                    @@word_blanks[index] = letter
+                end
+            end
+        end
+        practice_word
+    end
+
     def file_length(path)
         word_count = 0
         file = File.open(path, "r")
@@ -200,22 +233,30 @@ class PlayGame
         word_count
     end
 
-    def play
+    def start_game
         @@available_letters_array = PlayGame.new.make_letters()
-        @@current_word = PlayGame.new.word_to_play
+        PlayGame.new.set_current_word(PlayGame.new.word_to_play)
         @@word_blanks = PlayGame.new.make_blanks(@@current_word)
         @@strike_counter = 0
         @@strikes_display = ''
 
+        play()
+
+    end
+
+    def play
+        
+        p @@current_word
         puts "Lets get ready to play!"
         
         input = ''
         while input != 'QUIT'
             p @@word_blanks
-            p @@current_word
+            p @@used_letters_array
             puts "Strikes: #{@@strikes_display}"
             input = gets.chomp.upcase
             player_choice(input)
+
             win_game if @@current_word == @@word_blanks
             lose_game if @@strike_counter >= 6
             break if @@current_word.upcase.split('') == @@word_blanks
@@ -224,8 +265,6 @@ class PlayGame
             StartMenu.new.start_menu if input == 'MENU'
         end
             
-        @@available_letters_array = PlayGame.new.make_letters()
-
         play_again()
 
         exit
@@ -246,24 +285,21 @@ class PlayGame
     def matches_word(input)
         all_caps_current_word = @@current_word.upcase
         if !all_caps_current_word.include?(input)
-            add_strike()
-            add_strikes()
-            puts @@strike_counter
+            add_strikes_to_display()
         end
     end
 
-    def add_strikes
+    def add_strikes_to_display
+        @@strike_counter += 1
         @@strikes_display += 'X'
     end
 
     def player_choice(input)
         if @@available_letters_array.include?(input)
-            puts "It includes #{input}"
             @@available_letters_array.slice!(@@available_letters_array.find_index(input),1)
             matches_word(input)
             word_maker_holder_method(input)
             @@used_letters_array.push(input)
-            
         else
             puts "That is not a valid letter."
         end
@@ -289,7 +325,7 @@ class PlayGame
 
             case(input)
                 when 'Y' 
-                    play()
+                    StartMenu.new.new_game()
                 when 'N' 
                     StartMenu.new.quit_game()
                 else 
@@ -307,12 +343,9 @@ class PlayGame
         blank_array
     end
 
-    def add_strike
-        @@strike_counter += 1
-    end
-
     def reset_strike
         @@strike_counter = 0
+        @@strikes_display = ''
     end 
 
     def win_game
@@ -330,8 +363,10 @@ class PlayGame
         26.times do |x|
             uppercase_abc_array.push((x+65).chr)
         end
-        uppercase_abc_array
+        @@available_letters_array = uppercase_abc_array
+        @@available_letters_array
     end
+
 end
 
 class SavedGame
@@ -359,4 +394,4 @@ end
 
 #StartMenu.new.start_menu()
    
-PlayGame.new.play
+PlayGame.new.start_game

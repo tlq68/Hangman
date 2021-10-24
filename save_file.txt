@@ -1,1 +1,1 @@
-{"json_class":"GameState","current_word":"sulfonamide","used_letters":["S","F"]}
+{"json_class":"GameState","saved_word":"evisceration","saved_used_letters":["E","V","B","A","C","X","Z","T","L","P","V","I","S","R"]}
